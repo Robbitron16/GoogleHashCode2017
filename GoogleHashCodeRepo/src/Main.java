@@ -1,4 +1,6 @@
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -10,7 +12,8 @@ public class Main {
 	public static int WIDTH;
 	public static int L;
 	public static int H;
-	public static final String FILENAME = "small.in";
+	public static final String FILENAME = "big.in";
+	public static final String OUT = "big.out";
 	
 	public static void main(String[] args) throws FileNotFoundException {
 		int[] stats = new int[4];
@@ -31,10 +34,12 @@ public class Main {
 			size = extendSlices(starters, pizza);
 		}
 		
+		PrintStream out = new PrintStream(new File(OUT));
+		
 		//printPizza(pizza, HEIGHT, WIDTH);
-		System.out.println(starters.size() + " slices");
+		out.println(starters.size());
 		for (Slice slice : starters) {
-			System.out.println(slice);
+			out.println(slice);
 		}
 		System.out.println("Score of " + size + " out of " + WIDTH * HEIGHT);
 	}

@@ -47,6 +47,6 @@ public class Slice implements Comparable<Slice> {
 	}
 	
 	public String toString() {
-		return this.row + " " + this.col + " " + (this.eRow) + " " + (this.eCol) + " size: " + this.area;
+		return this.row + " " + this.col + " " + (this.eRow) + " " + (this.eCol);
 	}
 }
