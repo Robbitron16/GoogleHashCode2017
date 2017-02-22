@@ -1,157 +1,236 @@
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class Main {
-	public static final int HEIGHT = 6;
-	public static final int WIDTH = 7;
-	public static final int L = 1;
-	public static final int S = 5;
-	public static void main(String[] args) {
-		boolean[][] input = {{false, true, true, true, false, false, false},
-							 {true, true, true, true, false, true, true},
-							 {false, false, true, false, false, true, false},
-							 {false, true, true, false, true, true, true},
-							 {false, false, false, false, false, false, true},
-							 {false, false, false, false, false, false, true}};
-		Cell[][] pizza = new Cell[HEIGHT][WIDTH];
-		for (int i = 0; i < HEIGHT; i++) {
-			for (int j = 0; j < WIDTH; j++) {
-				pizza[i][j] = new Cell(i, j, input[i][j]);
-			}
-		}
-		printPizza(pizza, HEIGHT, WIDTH);
-		List<Cell> smaller = getSmallerIngredient(pizza);
-		List<Slice> slices = generateSlices(pizza, smaller);
-		List<Slice> reversed = new ArrayList<Slice>(slices);
-		Cell[][] reversedPizza = new Cell[HEIGHT][WIDTH];
-		for (int i = 0; i < HEIGHT; i++) {
-			for (int j = 0; j < WIDTH; j++) {
-				Cell elm = pizza[i][j];
-				reversedPizza[i][j] = new Cell(elm.row, elm.col, elm.isShroom);
-				reversedPizza[i][j].inSlice = elm.inSlice;
-			}
-		}
-		for (int i = 0; i < reversed.size() / 2; i++) {
-			Slice temp = reversed.get(i);
-			reversed.set(i, reversed.get(reversed.size() - i - 1));
-			reversed.set(reversed.size() - 1 - i, temp);
-		}
+	public static int HEIGHT;
+	public static int WIDTH;
+	public static int L;
+	public static int H;
+	public static final String FILENAME = "small.in";
+	
+	public static void main(String[] args) throws FileNotFoundException {
+		int[] stats = new int[4];
+		Cell[][] pizza = Parser.parseFile(FILENAME, stats);
+		HEIGHT = stats[0]; WIDTH = stats[1]; L = stats[2]; H = stats[3];
+		List<Cell> lessFrequent = getSmallerIngredient(pizza);
+		Collections.sort(lessFrequent);
+		List<Slice> starters = generateSlices(pizza, lessFrequent);
 		
-		// Compute clockwise slices.
-		int size = extendSlices(slices, pizza);
+		// Extend the slices:
+		int size = 0;
 		int lastSize = 0;
-		while (size < WIDTH * HEIGHT && lastSize != size) {
+		for (Slice slice : starters) {
+			size += slice.area;
+		}
+		while (lastSize != size && size < HEIGHT * WIDTH) {
 			lastSize = size;
-			size = extendSlices(slices, pizza);
+			size = extendSlices(starters, pizza);
 		}
 		
-		// Compute counter-clockwise slices
-		int reversedSize = extendSlices(reversed, reversedPizza);
-		lastSize = 0;
-		while (reversedSize < WIDTH * HEIGHT && lastSize != reversedSize) {
-			lastSize = reversedSize;
-			reversedSize = extendSlices(reversed, reversedPizza);
-		}
-		
-		List<Slice> finalList;
-		if (reversedSize > size) {
-			finalList = reversed;
-		} else {
-			finalList = slices;
-		}
-		System.out.println(finalList.size() + " slices");
-		for (Slice slice : finalList) {
+		//printPizza(pizza, HEIGHT, WIDTH);
+		System.out.println(starters.size() + " slices");
+		for (Slice slice : starters) {
 			System.out.println(slice);
 		}
-		System.out.println("Score of " + Math.max(size, reversedSize) + " out of " + WIDTH * HEIGHT);	
+		System.out.println("Score of " + size + " out of " + WIDTH * HEIGHT);
 	}
 	
 	public static List<Slice> generateSlices(Cell[][] pizza, List<Cell> smaller) {
 		List<Slice> slices = new ArrayList<Slice>();
+		Set<String> dims = getBlockSizes();
 		for (Cell cell : smaller) {
-			// Left, top, right, bot
-			if (cell.col > 0 && !pizza[cell.row][cell.col - 1].inSlice && !pizza[cell.row][cell.col - 1].isShroom) {
-				slices.add(new Slice(cell.row, cell.col - 1, cell.row, cell.col));
-				pizza[cell.row][cell.col].inSlice = true;
-				pizza[cell.row][cell.col - 1].inSlice = true;
-			} else if (cell.row > 0 && !pizza[cell.row - 1][cell.col].inSlice && !pizza[cell.row - 1][cell.col].isShroom) {
-				slices.add(new Slice(cell.row - 1, cell.col, cell.row, cell.col));
-				pizza[cell.row][cell.col].inSlice = true;
-				pizza[cell.row - 1][cell.col].inSlice = true;
-			} else if (cell.col < WIDTH - 1 && !pizza[cell.row][cell.col + 1].inSlice && !pizza[cell.row][cell.col + 1].isShroom) {
-				slices.add(new Slice(cell.row, cell.col, cell.row, cell.col + 1));
-				pizza[cell.row][cell.col].inSlice = true;
-				pizza[cell.row][cell.col + 1].inSlice = true;
-			} else if (cell.row < HEIGHT - 1 && !pizza[cell.row + 1][cell.col].inSlice && !pizza[cell.row + 1][cell.col].isShroom) {
-				slices.add(new Slice(cell.row, cell.col, cell.row + 1, cell.col));
-				pizza[cell.row][cell.col].inSlice = true;
-				pizza[cell.row + 1][cell.col].inSlice = true;
+			// If it's already been sliced, skip it:
+			// This will happen a lot depending on L.
+			if (cell.inSlice)
+				continue;
+			
+			for (String dim : dims) {
+				// In case one of the dimensions worked.
+				// Try first way and see if it fits (ie 1x2)
+				int dimHeight = Integer.parseInt(dim.substring(0, 1));
+				int dimWidth = Integer.parseInt(dim.substring(2));
+				// Init the dimensions. Have to swap them if the second case happens.
+				int col = Math.max(0, cell.col - dimWidth);
+				int row = Math.max(0, cell.row - dimHeight);
+				int eCol = Math.min(WIDTH - 1, col + dimWidth - 1);
+				int eRow = Math.min(HEIGHT - 1, row + dimHeight - 1);
+				if (dimWidth <= eCol - col + 1 && dimHeight <= eRow - row + 1) {
+					for (int i = row; i <= cell.row && eRow < HEIGHT; i++) {
+						for (int j = col; j <= cell.col && eCol < WIDTH; j++) {
+							if (verifyProposedSlice(pizza, i, j, eRow, eCol)) {
+								slices.add(new Slice(i, j, eRow, eCol));
+								//extendSlices(slices, pizza);
+								eRow = HEIGHT;
+								eCol = WIDTH;
+							} else {
+								eCol++;
+							}
+						}
+						eRow++;
+						eCol = Math.min(WIDTH - 1, col + dimWidth - 1);
+					}
+				}
+				if (cell.inSlice)
+					break;
+				
+				// Now try the 2x1 case.
+				int temp = dimHeight;
+				dimHeight = dimWidth;
+				dimWidth = temp;
+				col = Math.max(0, cell.col - dimWidth);
+				row = Math.max(0, cell.row - dimHeight);
+				eCol = Math.min(WIDTH - 1, col + dimWidth - 1);
+				eRow = Math.min(HEIGHT - 1, row + dimHeight - 1);
+				if (dimWidth <= eCol - col + 1 && dimHeight <= eRow - row + 1) {
+					for (int i = row; i <= cell.row && eRow < HEIGHT; i++) {
+						for (int j = col; j <= cell.col && eCol < WIDTH; j++) {
+							if (verifyProposedSlice(pizza, i, j, eRow, eCol)) {
+								slices.add(new Slice(i, j, eRow, eCol));
+								//extendSlices(slices, pizza);
+								eRow = HEIGHT;
+								eCol = WIDTH;
+							} else {
+								eCol++;
+							}
+						}
+						eRow++;
+						eCol = Math.min(WIDTH - 1, cell.col + dimWidth - 1);
+					}
+				}
+				if (cell.inSlice)
+					break;
 			}
 		}
 		return slices;
 	}
 	
+	public static boolean verifyProposedSlice(Cell[][] pizza, int row, int col, int eRow, int eCol) {
+		int shroomCount = 0, tomatoCount = 0;
+		for (int i = row; i <= eRow; i++) {
+			for (int j = col; j <= eCol; j++) {
+				Cell elm = pizza[i][j];
+				if (elm.inSlice)
+					return false;
+				if (elm.isShroom) {
+					shroomCount++;
+				} else {
+					tomatoCount++;
+				}
+			}
+		}
+		if (shroomCount >= L && tomatoCount >= L && shroomCount + tomatoCount <= H) {
+			for (int i = row; i <= eRow; i++) {
+				for (int j = col; j <= eCol; j++) {
+					pizza[i][j].inSlice = true;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+	
+	public static Set<String> getBlockSizes() {
+		Set<String> dims = new HashSet<String>();
+		switch (L) {
+		case 1:
+			// L = 1, H = 5
+			dims.add("1x2");
+			dims.add("1x3");
+			dims.add("1x4");
+			dims.add("1x5");
+			dims.add("2x2");
+			break;
+		case 4:
+			// L = 4, H = 12 
+			dims.add("1x8");
+			dims.add("1x9");
+			dims.add("1x10");
+			dims.add("1x11");
+			dims.add("1x12");
+			dims.add("2x4");
+			dims.add("2x5");
+			dims.add("2x6");
+			dims.add("3x3");
+			dims.add("3x4");
+			break;
+		case 6:
+			// L = 6, H = 14
+			dims.add("1x12");
+			dims.add("1x13");
+			dims.add("1x14");
+			dims.add("2x6");
+			dims.add("2x7");
+			dims.add("3x4");
+			break;
+		}
+		return dims;	
+	}
+	
 	public static int extendSlices(List<Slice> slices, Cell[][] pizza) {
 		int size = 0;
 		for (Slice slice : slices) {
-			if (slice.area < S) {
+			if (slice.area < H) {
 				boolean okToAdd;
 				// Do left expansion
-				if (slice.area + slice.rows <= S && slice.col > 0) {
+				if (slice.area + slice.rows <= H && slice.col > 0) {
 					okToAdd = true;
-					for (int i = slice.row; i < slice.row + slice.rows; i++) {
+					for (int i = slice.row; i <= slice.eRow; i++) {
 						if (pizza[i][slice.col - 1].inSlice)
 							okToAdd = false;
 					}
 					if (okToAdd) {
 						slice.col--;
-						for (int i = slice.row; i < slice.row + slice.rows; i++) {
+						for (int i = slice.row; i <= slice.eRow; i++) {
 							pizza[i][slice.col].inSlice = true;
 						}
 						slice.recomputeArea();
 					}
 				}
-				// Do right expansion.
-				if (slice.area + slice.rows <= S && slice.eCol < WIDTH - 1) {
+				// Do bottom expansion
+				if (slice.area + slice.cols <= H && slice.eRow < HEIGHT - 1) {
 					okToAdd = true;
-					for (int i = slice.row; i < slice.row + slice.rows; i++) {
+					for (int i = slice.col; i <= slice.eCol; i++) {
+						if (pizza[slice.eRow + 1][i].inSlice)
+							okToAdd = false;
+					}
+					if (okToAdd) {
+						slice.eRow++;
+						for (int i = slice.col; i <= slice.eCol; i++) {
+							pizza[slice.eRow][i].inSlice = true;
+						}
+						slice.recomputeArea();
+					}
+				}
+				// Do right expansion.
+				if (slice.area + slice.rows <= H && slice.eCol < WIDTH - 1) {
+					okToAdd = true;
+					for (int i = slice.row; i <= slice.eRow; i++) {
 						if (pizza[i][slice.eCol + 1].inSlice)
 							okToAdd = false;
 					}
 					if (okToAdd) {
 						slice.eCol++;
-						for (int i = slice.row; i < slice.row + slice.rows; i++) {
+						for (int i = slice.row; i <= slice.eRow; i++) {
 							pizza[i][slice.eCol].inSlice = true;
 						}
 						slice.recomputeArea();
 					}
 				}
 				// Do top expansion
-				if (slice.area + slice.cols <= S && slice.row > 0) {
+				if (slice.area + slice.cols <= H && slice.row > 0) {
 					okToAdd = true;
-					for (int i = slice.col; i < slice.col + slice.cols; i++) {
+					for (int i = slice.col; i <= slice.eCol; i++) {
 						if (pizza[slice.row - 1][i].inSlice)
 							okToAdd = false;
 					}
 					if (okToAdd) {
 						slice.row--;
-						for (int i = slice.col; i < slice.col + slice.cols; i++) {
+						for (int i = slice.col; i <= slice.eCol; i++) {
 							pizza[slice.row][i].inSlice = true;
-						}
-						slice.recomputeArea();
-					}
-				}
-				// Do bottom expansion
-				if (slice.area + slice.cols <= S && slice.eRow < HEIGHT - 1) {
-					okToAdd = true;
-					for (int i = slice.col; i < slice.col + slice.cols; i++) {
-						if (pizza[slice.eRow + 1][i].inSlice)
-							okToAdd = false;
-					}
-					if (okToAdd) {
-						slice.eRow++;
-						for (int i = slice.col; i < slice.col + slice.cols; i++) {
-							pizza[slice.eRow][i].inSlice = true;
 						}
 						slice.recomputeArea();
 					}
@@ -159,6 +238,7 @@ public class Main {
 			}
 			size += slice.area;
 		}
+		Collections.sort(slices);
 		return size;
 	}
 	
@@ -182,63 +262,6 @@ public class Main {
 				System.out.print(pizza[i][j]);
 			}
 			System.out.println();
-		}
-	}
-	
-	private static class Cell {
-		public boolean inSlice;
-		public boolean isShroom;
-		public int row;
-		public int col;
-		
-		public Cell(int row, int col, boolean isShroom) {
-			this.row = row;
-			this.col = col;
-			this.isShroom = isShroom;
-			this.inSlice = false;
-		}
-		
-		public String toString() {
-			return this.isShroom ? "M" : "T";
-		}
-	}
-	
-	private static class Slice {
-		public int row;
-		public int col;
-		public int eCol;
-		public int eRow;
-		public int area;
-		public int rows;
-		public int cols;
-		
-		public Slice(int row, int col, int eRow, int eCol) {
-			this.row = row;
-			this.col = col;
-			this.eCol = eCol;
-			this.eRow = eRow;
-			this.area = Math.abs((eRow - row + 1) * (eCol - col + 1));
-			this.rows = eRow - row + 1;
-			this.cols = eCol - col + 1;
-		}
-		
-		public void recomputeArea() {
-			this.rows = eRow - row + 1;
-			this.cols = eCol - col + 1;
-			this.area = Math.abs((eRow - row + 1) * (eCol - col + 1));
-		}
-		
-		@Override
-		public boolean equals(Object other) {
-			if (!(other instanceof Slice)) {
-				return false;
-			}
-			Slice oth = (Slice)other;
-			return oth.row == this.row && oth.col == this.col && oth.eRow == this.eRow && oth.eCol == this.eRow;
-		}
-		
-		public String toString() {
-			return this.row + " " + this.col + " " + (this.eRow) + " " + (this.eCol) + " size: " + this.area;
 		}
 	}
 }
