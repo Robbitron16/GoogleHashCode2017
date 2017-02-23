@@ -1,31 +1,31 @@
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class Parser {
 	public static Cell[][] parseFile(String filename, int[] info) throws FileNotFoundException {
 		Scanner file = new Scanner(new File(filename));
-		String basicInfo = file.nextLine();
-		Scanner tokens = new Scanner(basicInfo);
+		String line = file.nextLine();
+		Scanner tokens = new Scanner(line);
 		
-		// Get the initial specs of the pizza.
-		info[0] = tokens.nextInt();
-		info[1] = tokens.nextInt();
-		info[2] = tokens.nextInt();
-		info[3] = tokens.nextInt();
+		// Get the initial specs of the file.
+		info[0] = tokens.nextInt(); // V
+		info[1] = tokens.nextInt(); // E
+		info[2] = tokens.nextInt(); // R
+		info[3] = tokens.nextInt(); // C
+		info[4] = tokens.nextInt(); // X
 		
-		// Initialize the pizza
-		Cell[][] pizza = new Cell[info[0]][info[1]];
-		int row = 0;
-		while (file.hasNextLine()) {
-			char[] line = file.nextLine().toCharArray();
-			for (int i = 0; i < line.length; i++) {
-				pizza[row][i] = new Cell(row, i, line[i] == 'M');
-			}
-			row++;
+		// Get the sizes of the vids.
+		List<Integer> sizes = new ArrayList<Integer>();
+		line = file.nextLine();
+		tokens = new Scanner(line);
+		while (tokens.hasNextInt()) {
+			sizes.add(tokens.nextInt());
 		}
-		file.close();
-		tokens.close();
-		return pizza;
+		
+		
+		
 	}
 }
